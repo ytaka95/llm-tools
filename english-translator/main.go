@@ -21,7 +21,7 @@ func main() {
 
 	ctx := context.Background()
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
-		APIKey: os.Getenv("GOOGLE_API_KEY"),
+		APIKey: os.Getenv("API_KEY_GOOGLE"),
 		Backend: genai.BackendGeminiAPI,
 	})
 	if err != nil {
