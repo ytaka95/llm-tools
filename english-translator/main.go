@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"google.golang.org/genai"
 )
@@ -40,26 +41,21 @@ func main() {
 		SystemInstruction: systemInstruction,
 	}
 
+	start := time.Now()
 	result, err := client.Models.GenerateContent(ctx, "gemini-2.0-flash-lite", genai.Text("<text_to_translate>" + targetText + "</text_to_translate>"), config)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	printResponse(result)
+	printResponse(result, time.Since(start))
 }
 
-func printResponse(resp *genai.GenerateContentResponse) {
-	fmt.Println("✓ Translated text:")
+func printResponse(resp *genai.GenerateContentResponse, apiCallDuration time.Duration) {
 	for _, cand := range resp.Candidates {
 		for _, part := range cand.Content.Parts {
 			fmt.Print(part.Text)
 		}
 	}
-	fmt.Println("✓ CreateTime: ", resp.CreateTime)
-	fmt.Println("✓ ModelVersion: ", resp.ModelVersion)
-	fmt.Println("✓ UsageMetadata:")
-	fmt.Println("  - CachedContentTokenCount: ", resp.UsageMetadata.CachedContentTokenCount)
-	fmt.Println("  - CandidatesTokenCount: ", resp.UsageMetadata.CandidatesTokenCount)
-	fmt.Println("  - PromptTokenCount: ", resp.UsageMetadata.PromptTokenCount)
-	fmt.Println("  - TotalTokenCount: ", resp.UsageMetadata.TotalTokenCount)
+	fmt.Fprintln(os.Stderr, "✓ API call time: ", apiCallDuration)
+	fmt.Fprintln(os.Stderr, "✓ Model version: ", resp.ModelVersion)
+	fmt.Fprintln(os.Stderr, "✓ Total token count: ", resp.UsageMetadata.TotalTokenCount)
 }
