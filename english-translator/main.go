@@ -29,10 +29,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var maxTokens int32 = 100
+	var maxTokens int32 = int32(len(targetText) * 10)
 	systemInstruction := &genai.Content{
 		Parts: []*genai.Part{
-			{Text: "Please translate the following Japanese text into English.\n<requirements><req>The translation should be somewhat formal, suitable for a chat message to a colleague within a company.</req><req>The translation should be natural English, not a literal translation.</req><req>The output should only be the translated English sentence.</req></requirements>"},
+			{Text: "Please translate the following Japanese text into English.\n<requirements><req>The translation should be somewhat formal, suitable for a chat message to a colleague  or a documentation within a company.</req><req>The translation should be natural English, not a literal translation.</req><req>The output should only be the translated English sentence.</req><req>Keep the original formatting (e.g., Markdown) of the text.</req><req>The original Japanese text may contain XML tags and emoji, which should be preserved in the output.</req></requirements>"},
 		},
 	}
 
@@ -50,11 +50,13 @@ func main() {
 }
 
 func printResponse(resp *genai.GenerateContentResponse, apiCallDuration time.Duration) {
+	fmt.Println("==== Output ====")
 	for _, cand := range resp.Candidates {
 		for _, part := range cand.Content.Parts {
 			fmt.Print(part.Text)
 		}
 	}
+	fmt.Println("\n================")
 	fmt.Fprintln(os.Stderr, "✓ API call time: ", apiCallDuration)
 	fmt.Fprintln(os.Stderr, "✓ Model version: ", resp.ModelVersion)
 	fmt.Fprintln(os.Stderr, "✓ Total token count: ", resp.UsageMetadata.TotalTokenCount)
