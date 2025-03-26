@@ -37,7 +37,7 @@ func main() {
 
 	ctx := context.Background()
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
-		APIKey: os.Getenv("API_KEY_GOOGLE"),
+		APIKey:  os.Getenv("API_KEY_GOOGLE"),
 		Backend: genai.BackendGeminiAPI,
 	})
 	if err != nil {
@@ -62,27 +62,33 @@ func main() {
 	}
 
 	start := time.Now()
-	result, err := client.Models.GenerateContent(ctx, llmRequestConfig.Model, genai.Text(llmRequestConfig.InputText), config)
-	if err != nil {
-		log.Fatal(err)
-	}
-	printResponse(result, time.Since(start))
-}
+	stream := client.Models.GenerateContentStream(ctx, llmRequestConfig.Model, genai.Text(llmRequestConfig.InputText), config)
 
-func printResponse(resp *genai.GenerateContentResponse, apiCallDuration time.Duration) {
 	var output string
-	for _, cand := range resp.Candidates {
-		for _, part := range cand.Content.Parts {
-			output = html.UnescapeString(part.Text)
-			fmt.Print(output)
+	var modelVersion string
+	var totalTokenCount int32
+
+	for result, err := range stream {
+		if err != nil {
+			log.Fatal(err)
 		}
+		for _, cand := range result.Candidates {
+			for _, part := range cand.Content.Parts {
+				text := html.UnescapeString(part.Text)
+				fmt.Print(text)
+				output += text
+			}
+		}
+		modelVersion = result.ModelVersion
+		totalTokenCount = result.UsageMetadata.TotalTokenCount
 	}
+
 	if output != "" && !strings.HasSuffix(output, "\n") {
 		fmt.Println()
 	}
 	fmt.Fprintln(os.Stderr, "==== Metadata ====")
-	fmt.Fprintln(os.Stderr, "✓ API call time: ", apiCallDuration)
-	fmt.Fprintln(os.Stderr, "✓ Model version: ", resp.ModelVersion)
-	fmt.Fprintln(os.Stderr, "✓ Total token count: ", resp.UsageMetadata.TotalTokenCount)
+	fmt.Fprintln(os.Stderr, "✓ API call time:     ", time.Since(start))
+	fmt.Fprintln(os.Stderr, "✓ Model version:     ", modelVersion)
+	fmt.Fprintln(os.Stderr, "✓ Total token count: ", totalTokenCount)
 	fmt.Fprintln(os.Stderr, "==================")
 }
