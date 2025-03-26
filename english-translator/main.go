@@ -21,6 +21,26 @@ type LlmRequestConfig struct {
 }
 
 func main() {
+	// 出力用のチャネルを作成
+	outputChan := make(chan string, 100)
+	done := make(chan bool)
+
+	// 出力処理を別ゴルーチンで実行
+	go func() {
+		for text := range outputChan {
+			charLengthPerStep := 5
+			timePerChar := 50 * time.Millisecond
+			var start = 0
+			for start < len(text) {
+				end := min(start + charLengthPerStep, len(text))
+				fmt.Print(text[start:end])
+				start = end
+				time.Sleep(timePerChar)
+			}
+		}
+		done <- true
+	}()
+
 	// コマンドライン引数のチェック
 	if len(os.Args) < 2 {
 		fmt.Println("引数に翻訳したい日本語の文章を指定してください")
@@ -64,7 +84,7 @@ func main() {
 	start := time.Now()
 	stream := client.Models.GenerateContentStream(ctx, llmRequestConfig.Model, genai.Text(llmRequestConfig.InputText), config)
 
-	var output string
+	var lastText = ""
 	var modelVersion string
 	var totalTokenCount int32
 
@@ -75,19 +95,24 @@ func main() {
 		for _, cand := range result.Candidates {
 			for _, part := range cand.Content.Parts {
 				text := html.UnescapeString(part.Text)
-				fmt.Print(text)
-				output += text
+				outputChan <- text
+				lastText = text
 			}
 		}
 		modelVersion = result.ModelVersion
 		totalTokenCount = result.UsageMetadata.TotalTokenCount
 	}
+	apiCallTime := time.Since(start)
 
-	if output != "" && !strings.HasSuffix(output, "\n") {
+	// チャネルをクローズして出力処理の終了を待つ
+	close(outputChan)
+	<-done
+
+	if lastText != "" && !strings.HasSuffix(lastText, "\n") {
 		fmt.Println()
 	}
 	fmt.Fprintln(os.Stderr, "==== Metadata ====")
-	fmt.Fprintln(os.Stderr, "✓ API call time:     ", time.Since(start))
+	fmt.Fprintln(os.Stderr, "✓ API call time:     ", apiCallTime)
 	fmt.Fprintln(os.Stderr, "✓ Model version:     ", modelVersion)
 	fmt.Fprintln(os.Stderr, "✓ Total token count: ", totalTokenCount)
 	fmt.Fprintln(os.Stderr, "==================")
