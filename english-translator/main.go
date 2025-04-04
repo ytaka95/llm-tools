@@ -67,7 +67,7 @@ func main() {
 	// LlmRequestConfigの初期化
 	llmRequestConfig := LlmRequestConfig{
 		SystemInstruction: "Please translate the following Japanese text into English.\n<requirements><req>The translation should be somewhat formal, suitable for a chat message to a colleague, a documentation within a company, or simple and short git commit message.</req><req>The translation should be natural English, not a literal translation.</req><req>The output should only be the translated English sentence.</req><req>Keep the original formatting (e.g., Markdown) of the text.</req><req>The original Japanese text may contain XML tags and emoji, which should be preserved in the output.</req></requirements>",
-		Model: "gemini-2.0-flash-lite",
+		Model: "gemini-2.0-flash",
 		MaxTokens: int32(len(targetText) * 10),
 		InputText: "<text_to_translate>" + html.EscapeString(targetText) + "</text_to_translate>",
 	}
