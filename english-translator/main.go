@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -21,6 +22,16 @@ type LlmRequestConfig struct {
 }
 
 func main() {
+	// コマンドライン引数の定義
+	var modelName string
+	flag.StringVar(&modelName, "m", "gemini-2.0-flash", "モデル名を指定します")
+
+	// flagの解析（これで-mオプションを解析する）
+	flag.Parse()
+
+	// 残りの引数（翻訳テキスト）を取得
+	args := flag.Args()
+
 	// 出力用のチャネルを作成
 	outputChan := make(chan string, 100)
 	done := make(chan bool)
@@ -42,13 +53,14 @@ func main() {
 	}()
 
 	// コマンドライン引数のチェック
-	if len(os.Args) < 2 {
+	if len(args) < 1 {
 		fmt.Println("引数に翻訳したい日本語の文章を指定してください")
+		fmt.Println("使用方法: english-translator [-m model_name] \"翻訳したい日本語\"")
 		os.Exit(1)
 	}
 
 	// コマンドライン引数からプロンプトを取得
-	targetText := os.Args[1]
+	targetText := args[0]
 
 	if os.Getenv("API_KEY_GOOGLE") == "" {
 		fmt.Println("環境変数 API_KEY_GOOGLE を設定してください")
@@ -67,7 +79,7 @@ func main() {
 	// LlmRequestConfigの初期化
 	llmRequestConfig := LlmRequestConfig{
 		SystemInstruction: "Please translate the following Japanese text into English.\n<requirements><req>The translation should be somewhat formal, suitable for a chat message to a colleague, a documentation within a company, or simple and short git commit message.</req><req>The translation should be natural English, not a literal translation.</req><req>The output should only be the translated English sentence.</req><req>Keep the original formatting (e.g., Markdown) of the text.</req><req>The original Japanese text may contain XML tags and emoji, which should be preserved in the output.</req></requirements>",
-		Model: "gemini-2.0-flash",
+		Model: modelName,
 		MaxTokens: int32(len(targetText) * 10),
 		InputText: "<text_to_translate>" + html.EscapeString(targetText) + "</text_to_translate>",
 	}
@@ -90,6 +102,11 @@ func main() {
 
 	for result, err := range stream {
 		if err != nil {
+			// エラーメッセージが404を含む場合、モデル一覧を表示する
+			if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
+				fmt.Fprintln(os.Stderr, "指定されたモデルは存在しません。")
+			}
+			// その他のエラーの場合はそのまま表示
 			log.Fatal(err)
 		}
 		for _, cand := range result.Candidates {
