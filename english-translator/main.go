@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"slices"
 	"time"
 	"html"
 	"strings"
@@ -19,6 +20,45 @@ type LlmRequestConfig struct {
 	Model             string
 	MaxTokens         int32
 	InputText         string
+}
+
+func listAvailableModels(ctx context.Context, client *genai.Client) {
+	fmt.Fprintln(os.Stderr, "Error: Model not found. Available models supporting 'generateContent':")
+
+	pageSize := int32(20)
+	var listModelsConfig = genai.ListModelsConfig{
+		PageSize: &pageSize,
+	}
+	iter, err := client.Models.List(ctx, &listModelsConfig)
+	// 最初に終了条件を確認
+	if err == genai.ErrPageDone {
+		return
+	}
+	if err != nil {
+		log.Printf("Error creating client: %v", err)
+		return // エラーが発生したら処理を中断
+	}
+	for {
+		models := iter.Items
+		for _, m := range models {
+			supportsGenerateContent := false
+			if slices.Contains(m.SupportedActions, "generateContent") {
+				supportsGenerateContent = true
+			}
+
+			if supportsGenerateContent {
+				fmt.Fprintln(os.Stderr, "- ", m.Name, "\n    ", m.Description)
+			}
+		}
+		iter, err = iter.Next(ctx)
+		if err == genai.ErrPageDone {
+			break
+		}
+		if err != nil {
+			log.Printf("Error going to next page: %v", err)
+			break
+		}
+	}
 }
 
 func main() {
@@ -104,7 +144,8 @@ func main() {
 		if err != nil {
 			// エラーメッセージが404を含む場合、モデル一覧を表示する
 			if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
-				fmt.Fprintln(os.Stderr, "指定されたモデルは存在しません。")
+				listAvailableModels(ctx, client)
+				os.Exit(1)
 			}
 			// その他のエラーの場合はそのまま表示
 			log.Fatal(err)
