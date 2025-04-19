@@ -20,6 +20,8 @@ type LlmRequestConfig struct {
 	Model             string
 	MaxTokens         int32
 	InputText         string
+	IncludeThoughts   bool
+	ThinkingBudget    int32
 }
 
 func listAvailableModels(ctx context.Context, client *genai.Client) {
@@ -27,7 +29,7 @@ func listAvailableModels(ctx context.Context, client *genai.Client) {
 
 	pageSize := int32(20)
 	var listModelsConfig = genai.ListModelsConfig{
-		PageSize: &pageSize,
+		PageSize: pageSize,
 	}
 	iter, err := client.Models.List(ctx, &listModelsConfig)
 	// 最初に終了条件を確認
@@ -64,7 +66,7 @@ func listAvailableModels(ctx context.Context, client *genai.Client) {
 func main() {
 	// コマンドライン引数の定義
 	var modelName string
-	flag.StringVar(&modelName, "m", "gemini-2.0-flash", "モデル名を指定します")
+	flag.StringVar(&modelName, "m", "gemini-2.5-flash-preview-04-17", "モデル名を指定します")
 
 	// flagの解析（これで-mオプションを解析する）
 	flag.Parse()
@@ -122,14 +124,20 @@ func main() {
 		Model: modelName,
 		MaxTokens: int32(len(targetText) * 10),
 		InputText: "<text_to_translate>" + html.EscapeString(targetText) + "</text_to_translate>",
+		IncludeThoughts: false,
+		ThinkingBudget: 0,
 	}
 
 	config := &genai.GenerateContentConfig{
-		MaxOutputTokens:   &llmRequestConfig.MaxTokens,
+		MaxOutputTokens:   llmRequestConfig.MaxTokens,
 		SystemInstruction: &genai.Content{
 			Parts: []*genai.Part{
 				{Text: llmRequestConfig.SystemInstruction},
 			},
+		},
+		ThinkingConfig: &genai.ThinkingConfig{
+			IncludeThoughts: llmRequestConfig.IncludeThoughts,
+			ThinkingBudget: &llmRequestConfig.ThinkingBudget,
 		},
 	}
 
@@ -138,8 +146,12 @@ func main() {
 
 	var lastText = ""
 	var modelVersion string
-	var totalTokenCount int32
+	// var totalTokenCount int32
+	var promptTokenCount int32
+	var candidatesTokenCount int32
+	var thoughtsTokenCount int32
 
+	// ストリームから結果を読み込み、出力チャネルに送信
 	for result, err := range stream {
 		if err != nil {
 			// エラーメッセージが404を含む場合、モデル一覧を表示する
@@ -150,15 +162,34 @@ func main() {
 			// その他のエラーの場合はそのまま表示
 			log.Fatal(err)
 		}
-		for _, cand := range result.Candidates {
-			for _, part := range cand.Content.Parts {
-				text := html.UnescapeString(part.Text)
-				outputChan <- text
-				lastText = text
+
+		// 結果がnilでないか、候補があるかなどをチェック
+		if result != nil && result.Candidates != nil {
+			for _, cand := range result.Candidates {
+				// 候補がnilでないか、コンテンツがあるかなどをチェック
+				if cand != nil && cand.Content != nil && cand.Content.Parts != nil {
+					for _, part := range cand.Content.Parts {
+						// パートがnilでないか、テキストがあるかなどをチェック
+						if part != nil && part.Text != "" {
+							text := html.UnescapeString(part.Text)
+							outputChan <- text
+							lastText = text
+						}
+					}
+				}
 			}
 		}
-		modelVersion = result.ModelVersion
-		totalTokenCount = result.UsageMetadata.TotalTokenCount
+
+		// メタデータを更新 (nilチェックを追加)
+		if result != nil {
+			modelVersion = result.ModelVersion
+			if result.UsageMetadata != nil {
+				// totalTokenCount = result.UsageMetadata.TotalTokenCount
+				promptTokenCount = result.UsageMetadata.PromptTokenCount
+				candidatesTokenCount = result.UsageMetadata.CandidatesTokenCount
+				thoughtsTokenCount = result.UsageMetadata.ThoughtsTokenCount
+			}
+		}
 	}
 	apiCallTime := time.Since(start)
 
@@ -172,6 +203,9 @@ func main() {
 	fmt.Fprintln(os.Stderr, "==== Metadata ====")
 	fmt.Fprintln(os.Stderr, "✓ API call time:     ", apiCallTime)
 	fmt.Fprintln(os.Stderr, "✓ Model version:     ", modelVersion)
-	fmt.Fprintln(os.Stderr, "✓ Total token count: ", totalTokenCount)
+	// fmt.Fprintln(os.Stderr, "✓ Total token count: ", totalTokenCount)
+	fmt.Fprintln(os.Stderr, "✓ Prompt token count: ", promptTokenCount)
+	fmt.Fprintln(os.Stderr, "✓ Candidate token count: ", candidatesTokenCount)
+	fmt.Fprintln(os.Stderr, "✓ Thoughts token count: ", thoughtsTokenCount)
 	fmt.Fprintln(os.Stderr, "==================")
 }
