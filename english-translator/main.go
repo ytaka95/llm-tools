@@ -73,7 +73,7 @@ func listAvailableModels(ctx context.Context, client *genai.Client) {
 // parseArgs はコマンドライン引数を解析し、モデル名と翻訳対象テキストを返します。
 // 引数が不足している場合はエラーを返します。
 func parseArgs() (modelName string, targetText string, err error) {
-	flag.StringVar(&modelName, "m", "gemini-2.5-flash-preview-04-17", "モデル名を指定します")
+	flag.StringVar(&modelName, "m", "gemini-2.5-flash-preview-05-20", "モデル名を指定します")
 	flag.Parse()
 
 	args := flag.Args()
