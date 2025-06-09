@@ -15,11 +15,15 @@ go mod tidy
 ## ビルド
 
 ```sh
-go build -o english-translator
+# simple build
+go build -o ai-english-translator
+
+# for Production
+go build -ldflags "-s -w" -o ~/.local/myapps/bin/ai-english-translator main.go
 ```
 
 ## 実行
 
 ```sh
-./english-translator
+./ai-english-translator
 ```
