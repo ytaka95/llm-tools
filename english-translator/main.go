@@ -87,17 +87,29 @@ func parseArgs() (modelName string, targetText string, err error) {
 	return modelName, targetText, nil
 }
 
+
 // Gemini APIクライアントを初期化する
 // APIキーが環境変数に設定されていない場合はエラーを返す
 func initClient(ctx context.Context) (*genai.Client, error) {
-	apiKey := os.Getenv("API_KEY_GOOGLE")
-	if apiKey == "" {
-		return nil, fmt.Errorf("環境変数 API_KEY_GOOGLE を設定してください")
-	}
+	// APIキーを使う場合
+	// apiKey := os.Getenv("API_KEY_GOOGLE")
+	// if apiKey == "" {
+	// 	return nil, fmt.Errorf("環境変数 API_KEY_GOOGLE を設定してください")
+	// }
+
+	project := "ai-tool-pf-dp"
+	location := "asia-northeast1"
+
+	// APIキーを使う場合
+	// client, err := genai.NewClient(ctx, &genai.ClientConfig{
+	// 	APIKey:  apiKey,
+	// 	Backend: genai.BackendGeminiAPI,
+	// })
 
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
-		APIKey:  apiKey,
-		Backend: genai.BackendGeminiAPI,
+		Project:  project,
+		Location: location,
+		Backend:  genai.BackendVertexAI,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("クライアントの初期化に失敗しました: %w", err)
