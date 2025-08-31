@@ -2,7 +2,10 @@ module github.com/ytaka95/llm-tools
 
 go 1.23.4
 
-require google.golang.org/genai v1.11.1
+require (
+	github.com/fatih/color v1.18.0
+	google.golang.org/genai v1.11.1
+)
 
 require (
 	cloud.google.com/go v0.121.2 // indirect
@@ -16,6 +19,8 @@ require (
 	github.com/googleapis/enterprise-certificate-proxy v0.3.6 // indirect
 	github.com/googleapis/gax-go/v2 v2.14.2 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0 // indirect
 	go.opentelemetry.io/otel v1.36.0 // indirect
