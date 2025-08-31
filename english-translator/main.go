@@ -454,7 +454,7 @@ func main() {
 
 	go func() {
 		charLengthPerStep := 5
-		timePerChar := 25 * time.Millisecond
+		timePerChar := 15 * time.Millisecond
 		lastTextEndedWithNewline := false
 
 		for text := range outputChan {
