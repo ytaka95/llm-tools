@@ -29,7 +29,17 @@ go build -ldflags "-s -w" -o ~/.local/myapps/bin/llm-english-translator .
 ## 実行
 
 ```sh
-./llm-english-translator [翻訳したい日本語テキスト]
+./llm-english-translator --task translate [翻訳したい日本語テキスト]
+```
+
+タスクを指定する場合
+
+```sh
+# 翻訳
+./llm-english-translator --task translate --model gemini-2.5-flash "翻訳したい日本語テキスト"
+
+# 技術的な質問に回答
+./llm-english-translator --task tech-qa "GoでJSONを整形するには？"
 ```
 
 ヘルプ表示
