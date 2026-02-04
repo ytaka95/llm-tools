@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -11,41 +12,66 @@ import (
 
 )
 
-// コマンドライン引数を解析し、モデル名、初期化フラグ、翻訳対象テキストを返す
+// コマンドライン引数を解析し、モデル名、初期化フラグ、タスク定義、入力テキストを返す
 // ただしinitがtrueの場合はテキストは不要
-func parseArgs() (modelName string, thinkingFlag bool, initFlag bool, targetText string, err error) {
-	flag.StringVar(&modelName, "model", "gemini-2.5-flash", "モデル名を指定します")
-	flag.BoolVar(&thinkingFlag, "think", false, "思考プロセスを有効にします")
-	flag.BoolVar(&initFlag, "init", false, "対話形式で設定を初期化します")
+func parseArgs() (modelName string, thinkingFlag bool, initFlag bool, task TaskDefinition, inputText string, err error) {
+	defaultTask, _ := getTaskDefinition("translate")
 
-	// カスタムUsage関数を設定（位置引数の説明のみ追加）
-	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [options] <翻訳したい日本語テキスト>\n\n", os.Args[0])
-		fmt.Fprintf(flag.CommandLine.Output(), "Options:\n")
-		flag.PrintDefaults()
+	flagSet := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+	flagSet.SetOutput(flag.CommandLine.Output())
+	flagSet.StringVar(&modelName, "model", "gemini-2.5-flash", "モデル名を指定します")
+	var taskName string
+	flagSet.StringVar(&taskName, "task", "", "タスク名を指定します (必須)")
+	flagSet.BoolVar(&thinkingFlag, "think", false, "思考プロセスを有効にします")
+	flagSet.BoolVar(&initFlag, "init", false, "対話形式で設定を初期化します")
+
+	// カスタムUsage関数を設定（タスク指定ルールを追加）
+	flagSet.Usage = func() {
+		fmt.Fprintf(flagSet.Output(), "Usage: %s [options] <入力テキスト>\n\n", os.Args[0])
+		fmt.Fprintf(flagSet.Output(), "Example: %s --task translate \"翻訳したいテキスト\"\n\n", os.Args[0])
+		fmt.Fprintf(flagSet.Output(), "Init only: %s -init\n\n", os.Args[0])
+		fmt.Fprintf(flagSet.Output(), "Options:\n")
+		flagSet.PrintDefaults()
+		fmt.Fprintf(flagSet.Output(), "\nTasks:\n%s\n", taskUsageLines())
 	}
 
-	flag.Parse()
+	if err := flagSet.Parse(os.Args[1:]); err != nil {
+		return "", false, false, defaultTask, "", err
+	}
 
-	// -initフラグが設定されている場合は、テキスト引数は不要
+	// -initフラグが設定されている場合は、タスクとテキストは不要
 	if initFlag {
-		return modelName, false, initFlag, "", nil
+		return modelName, false, initFlag, defaultTask, "", nil
 	}
 
-	args := flag.Args()
+	if strings.TrimSpace(taskName) == "" {
+		flagSet.Usage()
+		return "", false, false, defaultTask, "", fmt.Errorf("タスク名を --task で指定してください")
+	}
+
+	parsedTask, ok := getTaskDefinition(taskName)
+	if !ok {
+		flagSet.Usage()
+		return "", false, false, defaultTask, "", fmt.Errorf("無効なタスク名が指定されています (-task): %s", taskName)
+	}
+
+	args := flagSet.Args()
 	if len(args) < 1 {
-		flag.Usage()
-		return "", false, false, "", fmt.Errorf("翻訳対象テキストが指定されていません")
+		flagSet.Usage()
+		return "", false, false, defaultTask, "", fmt.Errorf("入力テキストが指定されていません")
 	}
 
-	targetText = args[0]
-	return modelName, thinkingFlag, initFlag, targetText, nil
+	inputText = strings.Join(args, " ")
+	return modelName, thinkingFlag, initFlag, parsedTask, inputText, nil
 }
 
 func main() {
 	// コマンドライン引数の解析と検証
-	modelName, thinkingFlag, initFlag, targetText, err := parseArgs()
+	modelName, thinkingFlag, initFlag, task, inputText, err := parseArgs()
 	if err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			os.Exit(0)
+		}
 		os.Exit(1)
 	}
 
@@ -123,7 +149,7 @@ func main() {
 	}()
 
 	// LLMリクエストと生成コンテンツの設定作成
-	llmReqConfig, genaiConfig := createLLMConfigs(modelName, targetText, thinkingFlag)
+	llmReqConfig, genaiConfig := createLLMConfigs(task, modelName, inputText, thinkingFlag)
 
 	// ストリーミングAPI呼び出しと結果処理
 	metadata, err := streamContent(ctx, client, llmReqConfig, genaiConfig, outputChan)
@@ -142,5 +168,5 @@ func main() {
 	}
 
 	// メタデータの表示
-	printMetadata(metadata, apiMethod)
+	printMetadata(metadata, apiMethod, task.Name)
 }
