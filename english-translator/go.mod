@@ -1,10 +1,10 @@
 module github.com/ytaka95/llm-tools
 
-go 1.23.4
+go 1.24
 
 require (
 	github.com/fatih/color v1.18.0
-	google.golang.org/genai v1.11.1
+	google.golang.org/genai v1.44.0
 )
 
 require (

@@ -9,20 +9,20 @@ import (
 	"os"
 	"strings"
 	"time"
-
 )
 
 // コマンドライン引数を解析し、モデル名、初期化フラグ、タスク定義、入力テキストを返す
 // ただしinitがtrueの場合はテキストは不要
-func parseArgs() (modelName string, thinkingFlag bool, initFlag bool, task TaskDefinition, inputText string, err error) {
+func parseArgs() (modelName string, thinkingFlag bool, thinkingLevel string, initFlag bool, task TaskDefinition, inputText string, err error) {
 	defaultTask, _ := getTaskDefinition("translate")
 
 	flagSet := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	flagSet.SetOutput(flag.CommandLine.Output())
-	flagSet.StringVar(&modelName, "model", "gemini-2.5-flash", "モデル名を指定します")
+	flagSet.StringVar(&modelName, "model", "gemini-3-flash-preview", "モデル名を指定します")
 	var taskName string
 	flagSet.StringVar(&taskName, "task", "", "タスク名を指定します (必須)")
 	flagSet.BoolVar(&thinkingFlag, "think", false, "思考プロセスを有効にします")
+	flagSet.StringVar(&thinkingLevel, "think-level", "", "Gemini 3向けの思考レベルを指定します (minimal|low|medium|high)")
 	flagSet.BoolVar(&initFlag, "init", false, "対話形式で設定を初期化します")
 
 	// カスタムUsage関数を設定（タスク指定ルールを追加）
@@ -36,38 +36,38 @@ func parseArgs() (modelName string, thinkingFlag bool, initFlag bool, task TaskD
 	}
 
 	if err := flagSet.Parse(os.Args[1:]); err != nil {
-		return "", false, false, defaultTask, "", err
+		return "", false, "", false, defaultTask, "", err
 	}
 
 	// -initフラグが設定されている場合は、タスクとテキストは不要
 	if initFlag {
-		return modelName, false, initFlag, defaultTask, "", nil
+		return modelName, false, "", initFlag, defaultTask, "", nil
 	}
 
 	if strings.TrimSpace(taskName) == "" {
 		flagSet.Usage()
-		return "", false, false, defaultTask, "", fmt.Errorf("タスク名を --task で指定してください")
+		return "", false, "", false, defaultTask, "", fmt.Errorf("タスク名を --task で指定してください")
 	}
 
 	parsedTask, ok := getTaskDefinition(taskName)
 	if !ok {
 		flagSet.Usage()
-		return "", false, false, defaultTask, "", fmt.Errorf("無効なタスク名が指定されています (-task): %s", taskName)
+		return "", false, "", false, defaultTask, "", fmt.Errorf("無効なタスク名が指定されています (-task): %s", taskName)
 	}
 
 	args := flagSet.Args()
 	if len(args) < 1 {
 		flagSet.Usage()
-		return "", false, false, defaultTask, "", fmt.Errorf("入力テキストが指定されていません")
+		return "", false, "", false, defaultTask, "", fmt.Errorf("入力テキストが指定されていません")
 	}
 
 	inputText = strings.Join(args, " ")
-	return modelName, thinkingFlag, initFlag, parsedTask, inputText, nil
+	return modelName, thinkingFlag, thinkingLevel, initFlag, parsedTask, inputText, nil
 }
 
 func main() {
 	// コマンドライン引数の解析と検証
-	modelName, thinkingFlag, initFlag, task, inputText, err := parseArgs()
+	modelName, thinkingFlag, thinkingLevel, initFlag, task, inputText, err := parseArgs()
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			os.Exit(0)
@@ -149,7 +149,11 @@ func main() {
 	}()
 
 	// LLMリクエストと生成コンテンツの設定作成
-	llmReqConfig, genaiConfig := createLLMConfigs(task, modelName, inputText, thinkingFlag)
+	llmReqConfig, genaiConfig, err := createLLMConfigs(task, modelName, inputText, thinkingFlag, thinkingLevel)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 
 	// ストリーミングAPI呼び出しと結果処理
 	metadata, err := streamContent(ctx, client, llmReqConfig, genaiConfig, outputChan)

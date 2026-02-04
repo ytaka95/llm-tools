@@ -21,7 +21,8 @@ type LlmRequestConfig struct {
 	MaxTokens         int32
 	InputText         string
 	IncludeThoughts   bool
-	ThinkingBudget    int32
+	ThinkingBudget    *int32
+	ThinkingLevel     genai.ThinkingLevel
 }
 
 // LLMリクエストに関するメタデータ
@@ -105,38 +106,113 @@ func initClient(ctx context.Context, settings *Settings) (*genai.Client, string,
 	}
 }
 
+func parseThinkingLevel(level string) (genai.ThinkingLevel, error) {
+	normalized := strings.ToLower(strings.TrimSpace(level))
+	switch normalized {
+	case "minimal":
+		return genai.ThinkingLevelMinimal, nil
+	case "low":
+		return genai.ThinkingLevelLow, nil
+	case "medium":
+		return genai.ThinkingLevelMedium, nil
+	case "high":
+		return genai.ThinkingLevelHigh, nil
+	default:
+		return "", fmt.Errorf("無効な -think-level が指定されました: %s (指定可能: minimal|low|medium|high)", level)
+	}
+}
+
+func isGemini3ProModel(modelName string) bool {
+	name := strings.ToLower(strings.TrimSpace(modelName))
+	name = strings.TrimPrefix(name, "models/")
+	return strings.HasPrefix(name, "gemini-3-pro")
+}
+
 // TaskDefinitionに基づいてLlmRequestConfigとgenai.GenerateContentConfigを作成する
-func createLLMConfigs(task TaskDefinition, modelName string, inputText string, enableThinking bool) (LlmRequestConfig, *genai.GenerateContentConfig) {
-	var thinkingBudget int32 = 0
+func createLLMConfigs(task TaskDefinition, modelName string, inputText string, enableThinking bool, requestedThinkingLevel string) (LlmRequestConfig, *genai.GenerateContentConfig, error) {
 	var includeThoughts = false
-	if enableThinking {
-		thinkingBudget = 1024
-		includeThoughts = true
+	var thinkingBudgetValue int32 = 0
+	var thinkingBudget *int32
+	var thinkingLevel genai.ThinkingLevel
+
+	isGemini3 := isGemini3Model(modelName)
+	isGemini3Pro := isGemini3ProModel(modelName)
+
+	if isGemini3 {
+		if strings.TrimSpace(requestedThinkingLevel) != "" {
+			parsedLevel, err := parseThinkingLevel(requestedThinkingLevel)
+			if err != nil {
+				return LlmRequestConfig{}, nil, err
+			}
+			thinkingLevel = parsedLevel
+		} else if enableThinking {
+			thinkingLevel = genai.ThinkingLevelHigh
+		} else {
+			thinkingLevel = genai.ThinkingLevelLow
+		}
+
+		if isGemini3Pro && thinkingLevel != genai.ThinkingLevelLow && thinkingLevel != genai.ThinkingLevelHigh {
+			return LlmRequestConfig{}, nil, fmt.Errorf("モデル '%s' では -think-level は low または high のみ指定可能です", modelName)
+		}
+	} else if enableThinking {
+		thinkingBudgetValue = 1024
+		thinkingBudget = &thinkingBudgetValue
+	} else {
+		thinkingBudget = &thinkingBudgetValue
+	}
+
+	includeThoughts = enableThinking
+
+	maxTokens := int32(len(inputText))*task.MaxTokensMultiplier + task.MaxTokensBase
+	if thinkingBudget != nil {
+		maxTokens += *thinkingBudget
 	}
 
 	llmRequestConfig := LlmRequestConfig{
 		SystemInstruction: task.SystemInstruction,
 		Model:             modelName,
-		MaxTokens:         int32(len(inputText))*task.MaxTokensMultiplier + task.MaxTokensBase + thinkingBudget,
+		MaxTokens:         maxTokens,
 		InputText:         task.InputPrefix + html.EscapeString(inputText) + task.InputSuffix,
 		IncludeThoughts:   includeThoughts,
 		ThinkingBudget:    thinkingBudget,
+		ThinkingLevel:     thinkingLevel,
 	}
 
-	config := &genai.GenerateContentConfig{
-		MaxOutputTokens: llmRequestConfig.MaxTokens,
-		SystemInstruction: &genai.Content{
-			Parts: []*genai.Part{
-				{Text: llmRequestConfig.SystemInstruction},
+	var config *genai.GenerateContentConfig
+	if isGemini3 {
+		config = &genai.GenerateContentConfig{
+			MaxOutputTokens: llmRequestConfig.MaxTokens,
+			SystemInstruction: &genai.Content{
+				Parts: []*genai.Part{
+					{Text: llmRequestConfig.SystemInstruction},
+				},
 			},
-		},
-		ThinkingConfig: &genai.ThinkingConfig{
-			IncludeThoughts: llmRequestConfig.IncludeThoughts,
-			ThinkingBudget:  &llmRequestConfig.ThinkingBudget,
-		},
+			ThinkingConfig: &genai.ThinkingConfig{
+				IncludeThoughts: llmRequestConfig.IncludeThoughts,
+				ThinkingLevel:   llmRequestConfig.ThinkingLevel,
+			},
+		}
+	} else {
+		config = &genai.GenerateContentConfig{
+			MaxOutputTokens: llmRequestConfig.MaxTokens,
+			SystemInstruction: &genai.Content{
+				Parts: []*genai.Part{
+					{Text: llmRequestConfig.SystemInstruction},
+				},
+			},
+			ThinkingConfig: &genai.ThinkingConfig{
+				IncludeThoughts: llmRequestConfig.IncludeThoughts,
+				ThinkingBudget:  llmRequestConfig.ThinkingBudget,
+			},
+		}
 	}
+	return llmRequestConfig, config, nil
+}
 
-	return llmRequestConfig, config
+func isGemini3Model(modelName string) bool {
+	name := strings.ToLower(strings.TrimSpace(modelName))
+	name = strings.TrimPrefix(name, "models/")
+	return strings.HasPrefix(name, "gemini-3")
 }
 
 // Gemini APIにリクエストを送信し、ストリームされたコンテンツをoutputChanに送信する
