@@ -23,7 +23,7 @@ go mod tidy
 go build -o llm-english-translator
 
 # for Production
-go build -ldflags "-s -w" -o ~/.local/myapps/bin/llm-english-translator main.go
+go build -ldflags "-s -w" -o ~/.local/myapps/bin/llm-english-translator .
 ```
 
 ## 実行

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fatih/color"
 	"google.golang.org/genai"
 )
 
@@ -174,7 +175,12 @@ func streamContent(ctx context.Context, client *genai.Client, llmReqConfig LlmRe
 				if cand != nil && cand.Content != nil && cand.Content.Parts != nil {
 					for _, part := range cand.Content.Parts {
 						if part != nil && part.Text != "" {
-							text := html.UnescapeString(part.Text)
+							var text string
+							if part.Thought == true {
+								text = color.BlueString(html.UnescapeString(part.Text))
+							} else {
+								text = html.UnescapeString(part.Text)
+							}
 							outputChan <- text
 						}
 					}
