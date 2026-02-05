@@ -33,7 +33,7 @@ func getSettingsPath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("ホームディレクトリの取得に失敗しました: %w", err)
 	}
-	return filepath.Join(homeDir, ".config", "llm-english-translator", "settings.json"), nil
+	return filepath.Join(homeDir, ".config", "llm-assistant", "settings.json"), nil
 }
 
 // 設定ファイルディレクトリを作成する
@@ -155,7 +155,7 @@ func setupInteractive() (*Settings, error) {
 	}
 
 	fmt.Println()
-	fmt.Printf("設定を ~/.config/llm-english-translator/settings.json に保存しました。\n")
+	fmt.Printf("設定を ~/.config/llm-assistant/settings.json に保存しました。\n")
 	fmt.Printf("選択したAPIメソッド: %s\n", settings.APIMethod)
 	fmt.Println()
 
