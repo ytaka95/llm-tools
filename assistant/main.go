@@ -39,6 +39,11 @@ func parseArgs() (modelName string, thinkingFlag bool, thinkingLevel string, ini
 		return "", false, "", false, defaultTask, "", err
 	}
 
+	// -think-level オプションが指定されていたら ThinkingFlag を立てる
+	if strings.TrimSpace(thinkingLevel) != "" {
+		thinkingFlag = true
+	}
+
 	// -initフラグが設定されている場合は、タスクとテキストは不要
 	if initFlag {
 		return modelName, false, "", initFlag, defaultTask, "", nil

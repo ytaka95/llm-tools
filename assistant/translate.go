@@ -139,16 +139,18 @@ func createLLMConfigs(task TaskDefinition, modelName string, inputText string, e
 	isGemini3Pro := isGemini3ProModel(modelName)
 
 	if isGemini3 {
-		if strings.TrimSpace(requestedThinkingLevel) != "" {
-			parsedLevel, err := parseThinkingLevel(requestedThinkingLevel)
-			if err != nil {
-				return LlmRequestConfig{}, nil, err
+		if enableThinking {
+			if strings.TrimSpace(requestedThinkingLevel) != "" {
+				parsedLevel, err := parseThinkingLevel(requestedThinkingLevel)
+				if err != nil {
+					return LlmRequestConfig{}, nil, err
+				}
+				thinkingLevel = parsedLevel
+			} else {
+				return LlmRequestConfig{}, nil, fmt.Errorf("Gemini3シリーズでは -think-level が必須です")
 			}
-			thinkingLevel = parsedLevel
-		} else if enableThinking {
-			thinkingLevel = genai.ThinkingLevelHigh
 		} else {
-			thinkingLevel = genai.ThinkingLevelLow
+			thinkingLevel = genai.ThinkingLevelMinimal
 		}
 
 		if isGemini3Pro && thinkingLevel != genai.ThinkingLevelLow && thinkingLevel != genai.ThinkingLevelHigh {

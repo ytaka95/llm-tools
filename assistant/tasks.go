@@ -25,7 +25,7 @@ var taskDefinitions = []TaskDefinition{
 		InputPrefix:         "JAPANESE:\n\n",
 		InputSuffix:         "\n\n",
 		MaxTokensMultiplier: 10,
-		MaxTokensBase:       0,
+		MaxTokensBase:       512,
 	},
 	{
 		Name:                "tech-qa",
@@ -34,7 +34,7 @@ var taskDefinitions = []TaskDefinition{
 		InputPrefix:         "QUESTION:\n\n",
 		InputSuffix:         "\n\n",
 		MaxTokensMultiplier: 0,
-		MaxTokensBase:       512,
+		MaxTokensBase:       2048,
 	},
 }
 
