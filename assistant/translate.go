@@ -125,7 +125,7 @@ func parseThinkingLevel(level string) (genai.ThinkingLevel, error) {
 func isGemini3ProModel(modelName string) bool {
 	name := strings.ToLower(strings.TrimSpace(modelName))
 	name = strings.TrimPrefix(name, "models/")
-	return strings.HasPrefix(name, "gemini-3-pro")
+	return strings.HasPrefix(name, "gemini-3-pro") || strings.HasPrefix(name, "gemini-3.1-pro")
 }
 
 // TaskDefinitionに基づいてLlmRequestConfigとgenai.GenerateContentConfigを作成する

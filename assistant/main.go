@@ -18,7 +18,7 @@ func parseArgs() (modelName string, thinkingFlag bool, thinkingLevel string, ini
 
 	flagSet := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	flagSet.SetOutput(flag.CommandLine.Output())
-	flagSet.StringVar(&modelName, "model", "gemini-3-flash-preview", "モデル名を指定します")
+	flagSet.StringVar(&modelName, "model", "gemini-3.5-flash", "モデル名を指定します")
 	var taskName string
 	flagSet.StringVar(&taskName, "task", "", "タスク名を指定します (必須)")
 	flagSet.BoolVar(&thinkingFlag, "think", false, "思考プロセスを有効にします")

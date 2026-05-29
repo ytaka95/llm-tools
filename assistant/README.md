@@ -36,16 +36,16 @@ go build -ldflags "-s -w" -o ~/.local/myapps/bin/llm-assistant .
 
 ```sh
 # 翻訳
-./llm-assistant --task translate --model gemini-2.5-flash "翻訳したい日本語テキスト"
+./llm-assistant --task translate --model gemini-3.1-flash-lite "翻訳したい日本語テキスト"
 
 # 技術的な質問に回答
 ./llm-assistant --task tech-qa "GoでJSONを整形するには？"
 
 # Gemini 3 の思考レベルを指定
-./llm-assistant --task translate --model gemini-3-flash-preview --think-level medium "翻訳したい日本語テキスト"
+./llm-assistant --task translate --model gemini-3.5-flash --think-level medium "翻訳したい日本語テキスト"
 
 # gemini-3-pro* は low / high のみ指定可能
-./llm-assistant --task translate --model gemini-3-pro --think-level low "翻訳したい日本語テキスト"
+./llm-assistant --task translate --model gemini-3.1-pro --think-level low "翻訳したい日本語テキスト"
 ```
 
 ヘルプ表示
